@@ -162,10 +162,14 @@ for group in optimizer.param_groups:
 
 # SFT data mixture and DataLoader
 identity_conversations_filepath = os.path.join(base_dir, "identity_conversations.jsonl")
+ctf_dataset_path = os.path.join(base_dir, "ctf_training_set.jsonl")
+
+
 train_tasks = [
     SmolTalk(split="train"), # 460K rows of general conversations
     CustomJSON(filepath=identity_conversations_filepath), # 1000 rows of synthetic identity conversations
     CustomJSON(filepath=identity_conversations_filepath), # 2 epochs of these
+    CustomJSON(filepath=ctf_dataset_path), # one for experimentation
     *[MMLU(subset="all", split="auxiliary_train") for _ in range(args.mmlu_epochs)], # 100K rows per epoch
     *[GSM8K(subset="main", split="train") for _ in range(args.gsm8k_epochs)], # 8K rows per epoch
     SimpleSpelling(size=200000, split="train"), # 200K rows of Simple Spelling (e.g. spell the word 'apple')

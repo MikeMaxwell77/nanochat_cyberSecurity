@@ -19,9 +19,12 @@ from nanochat.engine import Engine
 
 from tasks.humaneval import HumanEval
 from tasks.mmlu import MMLU
+from tasks.cybersecurity import CybersecurityMCQ
 from tasks.arc import ARC
 from tasks.gsm8k import GSM8K
 from tasks.spellingbee import SpellingBee
+#from tasks.mmlu_ctf import CyberSecMMLU as MMLU_
+
 
 # -----------------------------------------------------------------------------
 # Generative evaluation loop (we go one problem at a time, sample, evaluate)
@@ -158,7 +161,10 @@ def run_chat_eval(task_name, model, tokenizer, engine,
                    batch_size=1, num_samples=1, max_new_tokens=512, temperature=0.0, top_k=50,
                    max_problems=None):
     # Create the evaluation object
+    # 'MMLU_CTF': partial(MMLU_CTF, split="all", split="test"),
     task_module = {
+        'CTI-MCQ': partial(CybersecurityMCQ, benchmark='CTI-MCQ'),
+        'MMLU-ComputerSecurity': partial(CybersecurityMCQ, benchmark='MMLU-ComputerSecurity'),
         'HumanEval': HumanEval,
         'MMLU': partial(MMLU, subset="all", split="test"),
         'ARC-Easy': partial(ARC, subset="ARC-Easy", split="test"),
@@ -210,6 +216,8 @@ if __name__ == "__main__":
         'HumanEval': 0.0, # open-ended => 0%
         'SpellingBee': 0.0, # open-ended => 0%
     }
+    #    'MMLU_CTF': 0.0, # open-ended => 0%
+    #}
     task_names = all_tasks if args.task_name is None else args.task_name.split('|')
 
     # Run all the task evaluations sequentially
@@ -236,11 +244,12 @@ if __name__ == "__main__":
     chatcore_metric_dict = {}
     if all_tasks_were_evaluated:
         centered_mean = 0
-        for task_name, acc in results.items():
+        for task_name in all_tasks:
+            acc = results[task_name]
             baseline_acc = baseline_accuracies.get(task_name, 0.0)
             centered_acc = (acc - baseline_acc) / (1.0 - baseline_acc)
             centered_mean += centered_acc
-        chatcore_metric = centered_mean / len(results)
+        chatcore_metric = centered_mean / len(all_tasks)
         chatcore_metric_dict = {"ChatCORE metric": chatcore_metric}
     get_report().log(section="Chat evaluation " + args.source, data=[
         vars(args), # CLI args
