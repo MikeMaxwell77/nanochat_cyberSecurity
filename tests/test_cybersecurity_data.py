@@ -3,6 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from scripts.clean_cyber_data import clean, parse_record
+from tasks.customjson import CustomJSON
 from tasks.cybersecurity import CybersecurityMCQ
 
 class CybersecurityTests(unittest.TestCase):
@@ -21,6 +22,20 @@ class CybersecurityTests(unittest.TestCase):
         messages, repaired = parse_record(raw)
         self.assertTrue(repaired)
         self.assertEqual(messages[-1]["content"], 'Call it "Office Preview".')
+
+    def test_custom_json_reports_malformed_record_location(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "input.jsonl"
+            source.write_text(
+                '[{"role":"user","content":"Question"},{"role":"assistant","content":"Bad "quote"."}]\n',
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(
+                ValueError,
+                r"Invalid JSON in .*input\.jsonl at line 1, column \d+:",
+            ):
+                CustomJSON(filepath=str(source))
 
     def test_scores_are_booleans(self):
         task = CybersecurityMCQ.__new__(CybersecurityMCQ)

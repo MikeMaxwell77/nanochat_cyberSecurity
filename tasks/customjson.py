@@ -33,11 +33,19 @@ class CustomJSON(Task):
 
         else:
             with open(filepath, 'r', encoding='utf-8') as f:
-                for line in f:
+                for line_number, line in enumerate(f, 1):
                     line = line.strip()
                     if not line:  # skip empty lines
                         continue
-                    messages = json.loads(line)
+                    try:
+                        messages = json.loads(line)
+                    except json.JSONDecodeError as error:
+                        raise ValueError(
+                            f"Invalid JSON in {filepath} at line {line_number}, "
+                            f"column {error.colno}: {error.msg}. "
+                            "Run scripts.clean_cyber_data on the source JSONL "
+                            "before using it for SFT."
+                        ) from error
                     # Validate the conversation structure
                     assert isinstance(messages, list), f"Expected list of messages, got {type(messages)}"
                     assert len(messages) >= 2, f"Conversation must have at least 2 messages, got {len(messages)}"
@@ -62,4 +70,3 @@ class CustomJSON(Task):
             "messages": messages,
         }
         return conversation
-
