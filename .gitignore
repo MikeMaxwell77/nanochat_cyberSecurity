@@ -6,6 +6,7 @@ report.md
 eval_bundle/
 
 # folders
+logs/*
 data/*
 
 # Secrets
