@@ -91,7 +91,7 @@ curl -L -o $NANOCHAT_BASE_DIR/identity_conversations.jsonl https://karpathy-publ
 # =================================================================================
 # Adding CTF DATASET
 # =================================================================================
-curl -L -o $NANOCHAT_BASE_DIR/ctf_training_set.jsonl https://huggingface.co/datasets/coleseven/Nanochat_SFT_4.3/resolve/main/nanochatdataCMAPRILTHREE.jsonl
+curl -L -o $NANOCHAT_BASE_DIR/ctf_training_set.jsonl https://huggingface.co/datasets/MikeMaxwell77/Nanochat_SFT_4.4/resolve/main/CTF_training_data.jsonl
 
 
 echo "test 4"
