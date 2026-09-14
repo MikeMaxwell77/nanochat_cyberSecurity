@@ -84,6 +84,9 @@ torchrun --standalone --nproc_per_node=2 -m scripts.base_eval -- --device-batch-
 # see dev/gen_synthetic_data.py for details on how this data was prepared and to get a sense of how you can easily tune it
 curl -L -o $NANOCHAT_BASE_DIR/identity_conversations.jsonl https://karpathy-public.s3.us-west-2.amazonaws.com/identity_conversations.jsonl
 
+# Download the cybersecurity SFT dataset.
+curl -L -o $NANOCHAT_BASE_DIR/ctf_training_set.jsonl https://huggingface.co/datasets/MikeMaxwell77/Nanochat_SFT_4.4/resolve/main/CTF_training_data.jsonl
+
 # run SFT and eval the model
 torchrun --standalone --nproc_per_node=2 -m scripts.chat_sft -- --device-batch-size=16 --run=$WANDB_RUN
 torchrun --standalone --nproc_per_node=2 -m scripts.chat_eval -- -i sft
