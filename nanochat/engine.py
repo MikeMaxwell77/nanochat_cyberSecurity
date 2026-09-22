@@ -173,7 +173,7 @@ class Engine:
         self.tokenizer = tokenizer # needed for tool use
 
     @torch.inference_mode()
-    def generate(self, tokens, num_samples=1, max_tokens=None, temperature=1.0, top_k=None, seed=42):
+    def generate(self, tokens, num_samples=1, max_tokens=None, temperature=1.0, top_k=None, seed=42, allow_tools=True):
         """Same as generate, but does single prefill and then clones the KV cache."""
         assert isinstance(tokens, list) and isinstance(tokens[0], int), "expecting list of ints"
         device = self.model.get_device()
@@ -254,7 +254,7 @@ class Engine:
                 if next_token == assistant_end or next_token == bos:
                     state.completed = True
                 # Handle tool logic
-                if next_token == python_start:
+                if allow_tools and next_token == python_start:
                     state.in_python_block = True
                     state.python_expr_tokens = []
                 elif next_token == python_end and state.in_python_block:

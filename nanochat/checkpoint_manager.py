@@ -159,6 +159,7 @@ def load_model_from_dir(checkpoints_dir, device, phase, model_tag=None, step=Non
     # build the model
     log0(f"Loading model from {checkpoint_dir} with step {step}")
     model, tokenizer, meta_data = build_model(checkpoint_dir, step, device, phase)
+    meta_data["checkpoint"] = {"directory": os.path.abspath(checkpoint_dir), "model_tag": model_tag, "step": step}
     return model, tokenizer, meta_data
 
 def load_model(source, *args, **kwargs):

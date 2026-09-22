@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # This script is configured to train your own GPT-2 grade LLM (pretraining + finetuning)
 # It is designed to run on a blank 8XH100 GPU node and takes approximately 3 hours to complete.
@@ -12,8 +13,8 @@
 echo "test 1"
 # Default intermediate artifacts directory is in ~/.cache/nanochat
 export OMP_NUM_THREADS=1
-export NANOCHAT_BASE_DIR="$HOME/.cache/nanochat"
-mkdir -p $NANOCHAT_BASE_DIR
+export NANOCHAT_BASE_DIR="${NANOCHAT_BASE_DIR:-$HOME/.cache/nanochat}"
+mkdir -p "$NANOCHAT_BASE_DIR"
 
 # -----------------------------------------------------------------------------
 # Python venv setup with uv
@@ -34,7 +35,7 @@ source .venv/bin/activate
 #    `wandb login`
 # 2) Set the WANDB_RUN environment variable when running this script, e.g.:
 #    `WANDB_RUN=d26 bash speedrun.sh`
-if [ -z "$WANDB_RUN" ]; then
+if [ -z "${WANDB_RUN:-}" ]; then
     # by default use "dummy" : it's handled as a special case, skips logging to wandb
     WANDB_RUN=dummy
 fi
@@ -61,12 +62,15 @@ echo "test 2"
 # Approximately 150 shards are needed for GPT-2 capability pretraining, add 20 for padding.
 # The maximum total number of shards available in the entire dataset is 6542.
 
+if [ "${PREPARE_BASE_DATA:-0}" = "1" ]; then
 python -m nanochat.dataset -n 170 &
 DATASET_DOWNLOAD_PID=$!
 # train the tokenizer with vocab size 2**15 = 32768 on ~2B characters of data
 python -m scripts.tok_train
 # evaluate the tokenizer (report compression ratio etc.)
 python -m scripts.tok_eval
+wait "$DATASET_DOWNLOAD_PID"
+fi
 
 
 echo "test 3"
@@ -98,9 +102,45 @@ echo "test 4"
 
 # Train, then evaluate all general and cybersecurity tasks in the same allocation.
 # Stop on failure so evaluation cannot silently use an older checkpoint.
-torchrun --standalone --nproc_per_node=2 -m scripts.chat_sft -- --device-batch-size=16 --run=$WANDB_RUN || exit $?
-torchrun --standalone --nproc_per_node=2 -m scripts.chat_eval -- -i sft \
-    -a "ARC-Easy|ARC-Challenge|MMLU|GSM8K|HumanEval|SpellingBee|CTI-MCQ|MMLU-ComputerSecurity" || exit $?
+# Resolve once, so baseline evaluation and SFT load exactly the same checkpoint.
+read -r BASE_TAG BASE_STEP < <(python - <<'PY'
+import os
+from nanochat.common import get_base_dir
+from nanochat.checkpoint_manager import find_largest_model, find_last_step
+root = os.path.join(get_base_dir(), "base_checkpoints")
+tag = os.environ.get("BASE_TAG") or find_largest_model(root)
+step = os.environ.get("BASE_STEP") or find_last_step(os.path.join(root, tag))
+print(tag, step)
+PY
+)
+SFT_TAG="${SFT_TAG:-${BASE_TAG}-cyber-$(date -u +%Y%m%dT%H%M%SZ)}"
+RESULT_DIR="$NANOCHAT_BASE_DIR/comparisons/$SFT_TAG"
+# Fail instead of mixing a previous run with this one.
+test ! -e "$NANOCHAT_BASE_DIR/chatsft_checkpoints/$SFT_TAG"
+mkdir -p "$RESULT_DIR"
+NPROC="${NPROC:-2}"
+TASKS="ARC-Easy|ARC-Challenge|MMLU|GSM8K|HumanEval|SpellingBee|CTI-MCQ|MMLU-ComputerSecurity"
+torchrun --standalone --nproc_per_node="$NPROC" -m scripts.chat_eval -- \
+    -i base -g "$BASE_TAG" -s "$BASE_STEP" -a "$TASKS" --output "$RESULT_DIR/base_general.json"
+python -m scripts.cyber_benchmark export --output "$RESULT_DIR/suite.jsonl"
+python -m scripts.cyber_benchmark local --source base --model-tag "$BASE_TAG" \
+    --step "$BASE_STEP" --suite "$RESULT_DIR/suite.jsonl" --output "$RESULT_DIR/base.json"
+torchrun --standalone --nproc_per_node="$NPROC" -m scripts.chat_sft -- \
+    --model-tag "$BASE_TAG" --model-step "$BASE_STEP" --output-tag "$SFT_TAG" \
+    --save-every="${SAVE_EVERY:-200}" --device-batch-size=16 --run="$WANDB_RUN"
+SFT_STEP=$(python - "$SFT_TAG" <<'PY'
+import os, sys
+from nanochat.common import get_base_dir
+from nanochat.checkpoint_manager import find_last_step
+print(find_last_step(os.path.join(get_base_dir(), "chatsft_checkpoints", sys.argv[1])))
+PY
+)
+torchrun --standalone --nproc_per_node="$NPROC" -m scripts.chat_eval -- \
+    -i sft -g "$SFT_TAG" -s "$SFT_STEP" -a "$TASKS" --output "$RESULT_DIR/sft_general.json"
+python -m scripts.cyber_benchmark local --source sft --model-tag "$SFT_TAG" \
+    --step "$SFT_STEP" --suite "$RESULT_DIR/suite.jsonl" --output "$RESULT_DIR/sft.json"
+uv run --with matplotlib python -m scripts.cyber_benchmark report \
+    --base "$RESULT_DIR/base.json" --sft "$RESULT_DIR/sft.json" --output-dir "$RESULT_DIR"
 
 # chat with the model over CLI! Leave out the -p to chat interactively
 # python -m scripts.chat_cli -p "Why is the sky blue?"

@@ -42,6 +42,8 @@ parser.add_argument("--device-type", type=str, default="", help="cuda|cpu|mps (e
 # Model loading
 parser.add_argument("--model-tag", type=str, default=None, help="model tag to load from")
 parser.add_argument("--model-step", type=int, default=None, help="model step to load from")
+parser.add_argument("--output-tag", default=None, help="Separate tag for saved SFT checkpoints")
+parser.add_argument("--save-every", type=int, default=200, help="Save every N optimizer steps (-1 disables periodic saves; final always saved)")
 parser.add_argument("--load-optimizer", type=int, default=1, help="warm-start optimizer from pretrained checkpoint (0=no, 1=yes)")
 # Training horizon
 parser.add_argument("--num-iterations", type=int, default=-1, help="number of optimization steps (-1 = full epoch)")
@@ -334,6 +336,8 @@ def get_muon_momentum(it):
 # Training loop
 x, y = next(train_loader) # prefetch the very first batch of data
 min_val_bpb = float("inf")
+val_bpb = None
+val_bpb_step = None
 smooth_train_loss = 0 # EMA of training loss
 ema_beta = 0.9 # EMA decay factor
 total_training_time = 0 # total wall-clock time of training
@@ -353,6 +357,7 @@ while True:
         val_loader = build_val_loader()
         eval_steps = args.eval_tokens // (args.device_batch_size * args.max_seq_len * ddp_world_size)
         val_bpb = evaluate_bpb(model, val_loader, eval_steps, token_bytes)
+        val_bpb_step = step
         print0(f"Step {step:05d} | Validation bpb: {val_bpb:.4f}")
         if val_bpb < min_val_bpb:
             min_val_bpb = val_bpb
@@ -399,9 +404,9 @@ while True:
         })
         model.train()
 
-    # save checkpoint at the end of the run (all ranks participate so each saves its optimizer shard)
-    if last_step:
-        output_dirname = args.model_tag if args.model_tag else f"d{depth}" # e.g. d12
+    # Save periodic and final checkpoints; each rank saves its optimizer shard.
+    if last_step or (args.save_every > 0 and step > 0 and step % args.save_every == 0):
+        output_dirname = args.output_tag or args.model_tag or f"d{depth}"
         checkpoint_dir = os.path.join(base_dir, "chatsft_checkpoints", output_dirname)
         save_checkpoint(
             checkpoint_dir,
@@ -410,7 +415,10 @@ while True:
             optimizer.state_dict(),
             {
                 "step": step,
-                "val_bpb": val_bpb, # loss at last step
+                "base_checkpoint": meta["checkpoint"],
+                "checkpoint_kind": "final" if last_step else "periodic",
+                "val_bpb": val_bpb, # latest available validation loss
+                "val_bpb_step": val_bpb_step,
                 "model_config": {
                     "sequence_len": args.max_seq_len,
                     "vocab_size": tokenizer.get_vocab_size(),

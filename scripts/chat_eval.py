@@ -9,6 +9,8 @@ torchrun --nproc_per_node=8 -m scripts.chat_eval -- -a ARC-Easy
 """
 
 import argparse
+import json
+from pathlib import Path
 from functools import partial
 import torch
 import torch.distributed as dist
@@ -187,7 +189,8 @@ if __name__ == "__main__":
 
     # Parse command-line arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument('-i', '--source', type=str, required=True, help="Source of the model: sft|rl")
+    parser.add_argument('-i', '--source', choices=['base', 'sft', 'rl'], required=True, help="Source of the model")
+    parser.add_argument('--output', help="Write machine-readable evaluation results (rank zero)")
     parser.add_argument('-a', '--task-name', type=str, default=None, help="Task name. Default = all tasks. Use | to split multiple tasks.")
     parser.add_argument('-t', '--temperature', type=float, default=0.0)
     parser.add_argument('-m', '--max-new-tokens', type=int, default=512)
@@ -199,6 +202,8 @@ if __name__ == "__main__":
     parser.add_argument('-x', '--max-problems', type=int, default=None, help='Max problems to evaluate')
     parser.add_argument('--device-type', type=str, default='', choices=['cuda', 'cpu', 'mps'], help='Device type for evaluation: cuda|cpu|mps. empty => autodetect')
     args = parser.parse_args()
+    if args.max_problems is not None and args.max_problems <= 0:
+        parser.error('--max-problems must be positive')
 
     device_type = autodetect_device_type() if args.device_type == "" else args.device_type
     ddp, ddp_rank, ddp_local_rank, ddp_world_size, device = compute_init(device_type)
@@ -256,5 +261,14 @@ if __name__ == "__main__":
         results,
         chatcore_metric_dict,
     ])
+
+    if args.output and ddp_rank == 0:
+        output = Path(args.output)
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(json.dumps({
+            "checkpoint": meta["checkpoint"], "config": vars(args),
+            "protocol": "nanochat-choice-logits-and-generative-v1",
+            "results": results, **chatcore_metric_dict,
+        }, indent=2) + "\n", encoding="utf-8")
 
     compute_cleanup()
