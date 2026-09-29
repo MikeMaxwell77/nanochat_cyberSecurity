@@ -15,3 +15,5 @@ data/*
 # Local setup
 CLAUDE.md
 wandb/
+
+.env.*
