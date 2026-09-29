@@ -22,7 +22,6 @@ source /home/mm401/.cargo/env
 
 cd /work/mm401/nanochat
 python scripts/preflight_upload.py
-source .venv/bin/activate
 
 # Build the tokenizer bridge
 # uv run maturin develop --release --manifest-path Cargo.toml

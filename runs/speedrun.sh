@@ -28,6 +28,23 @@ uv sync --extra gpu
 # activate venv so that `python` uses the project's venv instead of system python
 source .venv/bin/activate
 
+# Fail early if the synced environment cannot import the training packages or see CUDA.
+python - <<'PY'
+import datasets
+import fastapi
+import kernels
+import psutil
+import rustbpe
+import tiktoken
+import tokenizers
+import torch
+import uvicorn
+import wandb
+
+assert torch.cuda.is_available(), "PyTorch cannot see the allocated CUDA GPU"
+print(f"Python dependencies ready; PyTorch {torch.__version__}; GPU: {torch.cuda.get_device_name(0)}")
+PY
+
 # -----------------------------------------------------------------------------
 # wandb setup
 # If you wish to use wandb for logging (it's nice!, recommended).

@@ -14,7 +14,7 @@ bash sync.sh --verify
 sbatch nanochat_train.sh
 ```
 
-The preflight fails on CRLF line endings; use `python scripts/preflight_upload.py --fix` locally to convert them to LF. `sync.sh --verify` compares the uploaded files with the local files using checksums, so a successful check means the remote copies have the same LF endings. The Slurm job checks line endings and shell syntax again before training. Its configured modules still need confirmation from the cluster's module list.
+The preflight fails on CRLF line endings; use `python scripts/preflight_upload.py --fix` locally to convert them to LF. Run it from a Git Bash terminal on Windows to include shell syntax checks. `sync.sh --verify` compares the uploaded files with the local files using checksums, so a successful check means the remote copies have the same LF endings. The Slurm job checks line endings and shell syntax again before training. `moduleAvail.md` lists all three configured modules: `shared`, `python3/anaconda/3.12`, and `cuda/12.8`.
 
 ![nanochat logo](dev/nanochat.png)
 ![scaling laws](dev/scaling_laws_jan26.png)
