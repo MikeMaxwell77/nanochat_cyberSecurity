@@ -8,8 +8,8 @@
 #SBATCH --mem=64G
 #SBATCH --time=8:00:00
 #SBATCH --account rc_general
-#SBATCH -p gpu-A100  
-#SBATCH --gres=gpu:2
+#SBATCH -p gpu-H200
+#SBATCH --gres=gpu:1
 
 # --- Rest of your script follows ---
 module load shared python3/anaconda/3.12
@@ -25,4 +25,4 @@ source .venv/bin/activate
 # uv run maturin develop --release --manifest-path Cargo.toml
 
 # Start the training
-bash runs/speedrun.sh
+NPROC=1 bash runs/speedrun.sh
