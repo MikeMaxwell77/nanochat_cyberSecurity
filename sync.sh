@@ -20,8 +20,8 @@ if [[ ! "$REMOTE_PORT" =~ ^[0-9]+$ ]]; then
 fi
 
 if [[ "${1:-}" == "--help" ]]; then
-  echo "Usage: bash sync.sh [--check | --diff]"
-  echo "--check tests SSH login; --diff previews uploads."
+  echo "Usage: bash sync.sh [--check | --diff | --verify]"
+  echo "--check tests SSH login; --diff previews uploads; --verify compares file contents after upload."
   echo "Without an option, uploads changed files to REMOTE_BASE."
   echo "Configure REMOTE_USER, REMOTE_HOST, REMOTE_PORT, and REMOTE_BASE in .env."
   exit 0
@@ -55,6 +55,17 @@ if [ "${1:-}" = "--diff" ]; then
   echo "Files to upload to $REMOTE_BASE:"
   rsync -ahni --out-format='%n' "${EXCLUDES[@]}" -e "${SSH[*]}" ./ "$REMOTE"
   echo "(nothing listed above = already identical)"
+  exit 0
+fi
+
+if [ "${1:-}" = "--verify" ]; then
+  echo "Comparing local and remote file contents in $REMOTE_BASE..."
+  differences=$(rsync -ahnc --out-format='%n' "${EXCLUDES[@]}" -e "${SSH[*]}" ./ "$REMOTE")
+  if [[ -n "$differences" ]]; then
+    printf 'Files that differ or are missing remotely:\n%s\n' "$differences" >&2
+    exit 1
+  fi
+  echo "Verified: uploaded files match local files byte for byte."
   exit 0
 fi
 

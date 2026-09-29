@@ -17,3 +17,6 @@ CLAUDE.md
 wandb/
 
 .env.*
+
+# Markdown Files
+moduleAvail.md

@@ -11,6 +11,8 @@
 #SBATCH -p gpu-H200
 #SBATCH --gres=gpu:1
 
+set -euo pipefail
+
 # --- Rest of your script follows ---
 module load shared python3/anaconda/3.12
 module load cuda/12.8
@@ -19,6 +21,7 @@ source /home/mm401/.bashrc
 source /home/mm401/.cargo/env
 
 cd /work/mm401/nanochat
+python scripts/preflight_upload.py
 source .venv/bin/activate
 
 # Build the tokenizer bridge

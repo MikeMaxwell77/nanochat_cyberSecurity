@@ -1,5 +1,21 @@
 # nanochat
 
+## Cluster upload and submission
+
+The cluster requires Slurm for scripts and tests. Run the upload checks on your own computer, then submit the job through the scheduler. Do not run the project preflight or training scripts directly on a cluster login node.
+
+```bash
+# On your computer, before uploading (use `py` instead of `python` on Windows):
+python scripts/preflight_upload.py
+bash sync.sh
+bash sync.sh --verify
+
+# On the cluster login node, submit the job:
+sbatch nanochat_train.sh
+```
+
+The preflight fails on CRLF line endings; use `python scripts/preflight_upload.py --fix` locally to convert them to LF. `sync.sh --verify` compares the uploaded files with the local files using checksums, so a successful check means the remote copies have the same LF endings. The Slurm job checks line endings and shell syntax again before training. Its configured modules still need confirmation from the cluster's module list.
+
 ![nanochat logo](dev/nanochat.png)
 ![scaling laws](dev/scaling_laws_jan26.png)
 
