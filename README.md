@@ -1,3 +1,33 @@
+# Cybersecurity LLM fine-tuning with nanochat
+
+Graduate research collaboration on whether cybersecurity and capture-the-flag (CTF) instruction data improves a small language model on security questions. The project uses Andrej Karpathy and contributors’ [nanochat](https://github.com/karpathy/nanochat) as its training framework.
+
+## My contributions
+
+I led the model-training design and engineering work in collaboration with a graduate researcher and under Dr. Paul Comitz’s supervision. My work included repairing malformed JSON training records, adapting training code and dependencies for university GPU infrastructure, running training and evaluation jobs, and comparing checkpoint behavior.
+
+## Experiment design
+
+| Run | Purpose |
+| --- | --- |
+| Base checkpoint | Establish the starting score before supervised fine-tuning. |
+| Cybersecurity/CTF fine-tuning | Measure the change after adapting the checkpoint with a training mixture that includes CTF examples. |
+| Matched no-CTF control | Isolate the contribution of CTF examples by matching the base checkpoint, optimizer-step budget, and evaluation questions. The learning-rate schedules can differ slightly. |
+
+The evaluation tools support MMLU Computer Security and CTI-MCQ. The project records choice-logit scores separately from generated-answer scores. For generated answers, all checkpoints use the same frozen question suite and strict single-letter grading. The existing training pipeline uses MMLU test material for validation, so its computer-security subset serves as a regression check. Use CTI-MCQ as a separate evaluation and reserve its final scores for reporting.
+
+## Code and reproduction
+
+The experiment code lives on the [CTF control branch](https://github.com/MikeMaxwell77/nanochat_cyberSecurity/tree/ctf_control). Its [evaluation guide](https://github.com/MikeMaxwell77/nanochat_cyberSecurity/blob/ctf_control/CYBERSECURITY.md) covers data cleanup, checkpoint requirements, and before/after scoring. The [CTF ablation guide](https://github.com/MikeMaxwell77/nanochat_cyberSecurity/blob/ctf_control/runs/CTF_ABLATION.md) documents how to submit a matched control with Slurm.
+
+The branch is configured for a university GPU cluster. A comparison requires the original tokenizer and base checkpoint, reviewed instruction data, and a completed training run. See that branch’s README for environment and scheduler setup.
+
+## Results status
+
+The public source includes the evaluation harness and report generator. A verified benchmark table is pending the original run artifacts. The planned comparison records the base and fine-tuned checkpoint IDs, dataset revision and question count, the scoring protocol, and accuracy for each model. The MMLU result covers computer security only.
+
+---
+
 # nanochat
 
 ![nanochat logo](dev/nanochat.png)
